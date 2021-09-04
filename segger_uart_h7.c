@@ -32,22 +32,14 @@ Purpose : Terminal control for Flasher using USART1 on PA9/PA10
 #include "stm32h7xx.h"
 
 #define OS_FSYS 400000000L   // MCU core frequency
-//#define RCC_BASE_ADDR       0x40023800
 #define RCC_BASE_ADDR            0x58024400
 
-//#define OFF_AHB1ENR         0x30        // AHB1 peripheral clock enable register
-//#define OFF_APB1ENR         0x40        // APB1 peripheral clock enable register
-//#define OFF_APB2ENR         0x44        // APB2 peripheral clock enable register
 #define OFF_APB1ENR         0xE8
 #define OFF_AHB4ENR         0xE0
 
-//#define RCC_AHB1ENR         *(volatile uint32_t*)(RCC_BASE_ADDR + OFF_AHB1ENR)
-//#define RCC_APB1ENR         *(volatile uint32_t*)(RCC_BASE_ADDR + OFF_APB1ENR)
-//#define RCC_APB2ENR         *(volatile uint32_t*)(RCC_BASE_ADDR + OFF_APB2ENR)
 #define RCC_APB1ENR         *(volatile uint32_t*)(RCC_BASE_ADDR + OFF_APB1ENR)
 #define RCC_AHB4ENR         *(volatile uint32_t*)(RCC_BASE_ADDR + OFF_AHB4ENR)
 
-//#define GPIOA_BASE_ADDR     0x40020000
 #define GPIOD_BASE_ADDR     0x58020c00
 
 #define OFF_MODER           0x00        // GPIOx_MODER    (GPIO port mode register)
@@ -61,16 +53,8 @@ Purpose : Terminal control for Flasher using USART1 on PA9/PA10
 #define OFF_AFRL            0x20        // GPIOx_AFRL     (GPIO alternate function low register)
 #define OFF_AFRH            0x24        // GPIOx_AFRH     (GPIO alternate function high register)
 
-//#define USART1_BASE_ADDR    0x40011000
-//#define USART2_BASE_ADDR    0x40004400
 #define USART3_BASE_ADDR    0x40004800
 
-//#define OFF_SR              0x00        // Status register
-//#define OFF_DR              0x04        // Data register
-//#define OFF_BRR             0x08        // Baudrate register
-//#define OFF_CR1             0x0C        // Control register 1
-//#define OFF_CR2             0x10        // Control register 2
-//#define OFF_CR3             0x14        // Control register 3
 #define OFF_CR1             0x00        // Control register 1
 #define OFF_CR2             0x04        // Control register 2
 #define OFF_CR3             0x08        // Control register 3
@@ -80,12 +64,6 @@ Purpose : Terminal control for Flasher using USART1 on PA9/PA10
 #define OFF_TDR             0x28        // Transmit Data register
 
 
-//#define UART_BASECLK        OS_FSYS / 4       // USART2 runs on APB1 clock
-//#define GPIO_BASE_ADDR      GPIOA_BASE_ADDR
-//#define USART_BASE_ADDR     USART2_BASE_ADDR
-//#define GPIO_UART_TX_BIT    2                // USART2 TX: Pin pa2
-//#define GPIO_UART_RX_BIT    3                 // USART2 RX: Pin pa3
-//#define USART_IRQn          USART2_IRQn
 #define UART_BASECLK        OS_FSYS / 4       // USART3 runs on APB1 clock
 #define GPIO_BASE_ADDR      GPIOD_BASE_ADDR   // GPIOD MODER
 #define USART_BASE_ADDR     USART3_BASE_ADDR  // USART3 CR1
@@ -99,7 +77,6 @@ Purpose : Terminal control for Flasher using USART1 on PA9/PA10
 
 #define USART_SR            *(volatile uint32_t*)(USART_BASE_ADDR + OFF_SR)
 
-//#define USART_DR            *(volatile uint32_t*)(USART_BASE_ADDR + OFF_DR)
 #define USART_RDR            *(volatile uint32_t*)(USART_BASE_ADDR + OFF_RDR)
 #define USART_TDR            *(volatile uint32_t*)(USART_BASE_ADDR + OFF_TDR)
 
@@ -209,8 +186,6 @@ void HIF_UART_WaitForTxEnd(void) {
 *    (1) This is a high-prio interrupt so it may NOT use embOS functions
 *        However, this also means that embOS will never disable this interrupt
 */
-//void USART2_IRQHandler(void);
-//void USART2_IRQHandler(void) {
 void USART3_IRQHandler(void);
 void USART3_IRQHandler(void) {
   int UsartStatus;
@@ -219,7 +194,6 @@ void USART3_IRQHandler(void) {
 
   UsartStatus = USART_SR;                              // Examine status register
   if (UsartStatus & (1 << USART_RXNE)) {               // Data received?
-//    v = USART_DR;                                      // Read data
 	  v = USART_RDR;                                      // Read data
     if ((UsartStatus & USART_RX_ERROR_FLAGS) == 0) {   // Only process data if no error occurred
       (void)v;                                         // Avoid warning in BTL
@@ -242,7 +216,6 @@ void USART3_IRQHandler(void) {
       USART_CR1 &= ~(1UL << USART_TXEIE);  // Disable further tx interrupts
     } else {
       USART_SR;      // Makes sure that "transmission complete" flag in USART_SR is reset to 0 as soon as we write USART_DR. If USART_SR is not read before, writing USART_DR does not clear "transmission complete". See STM32F4 USART documentation for more detailed description.
-//      USART_DR = v;  // Start transmission by writing to data register
       USART_TDR = v;  // Start transmission by writing to data register
     }
   }
@@ -268,15 +241,9 @@ void HIF_UART_Init(uint32_t Baudrate, UART_ON_TX_FUNC_P cbOnTx, UART_ON_RX_FUNC_
   //
   // Configure USART RX/TX pins for alternate function AF7
   //
-//  RCC_APB1ENR |= (1 <<  17);        // Enable USART2 clock
-//  RCC_AHB1ENR |= (1 <<  0);        // Enable IO port A clock
   RCC_APB1ENR |= (1 <<  18);        // Enable USART3 clock
   RCC_AHB4ENR |= (1 <<  3);         // Enable IO port D clock
 
-//  v  = GPIO_AFRL;
-//  v &= ~((15UL << ((GPIO_UART_TX_BIT) << 2)) | (15UL << ((GPIO_UART_RX_BIT) << 2)));
-//  v |=   ((7UL << ((GPIO_UART_TX_BIT) << 2)) | (7UL << ((GPIO_UART_RX_BIT) << 2)));
-//  GPIO_AFRL = v;
   v  = GPIO_AFRH;
   v &= ~((15UL << ((GPIO_UART_TX_BIT % 8) << 2)) | (15UL << ((GPIO_UART_RX_BIT % 8) << 2)));
   v |=   ((7UL << ((GPIO_UART_TX_BIT % 8) << 2)) | (7UL << ((GPIO_UART_RX_BIT % 8) << 2)));
